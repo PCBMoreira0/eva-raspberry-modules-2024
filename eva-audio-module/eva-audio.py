@@ -48,14 +48,14 @@ def speech(audio_file, block = True):
 def on_connect(client, userdata, flags, rc):
     # Subscribing in on_connect() means that if we lose the connection and
     # Reconnect then subscriptions will be renewed.
-    client.subscribe(topic=[(topic_base + '/audio', 1), ])
+    client.subscribe(topic=[(topic_base + '/AUDIO', 1), ])
     client.subscribe(topic=[(topic_base + '/speech', 1), ])
     print("Audio Module - Connected.")
 
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    if msg.topic == topic_base + '/audio':
+    if msg.topic == topic_base + '/AUDIO':
         file_name = msg.payload.decode().split("|")[0]
         block = msg.payload.decode().split("|")[1]
         if block == "TRUE":

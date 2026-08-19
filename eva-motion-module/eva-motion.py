@@ -25,16 +25,16 @@ EVA_arduino_serial_obj = serial.Serial(EVA_SERIAL_PORT, BAUD_RATE)
 def on_connect(client, userdata, flags, rc):
     # Subscribing in on_connect() means that if we lose the connection and
     # Reconnect then subscriptions will be renewed.
-    client.subscribe(topic=[(topic_base + '/motion/head', 1), ])
-    client.subscribe(topic=[(topic_base + '/motion/arm/left', 1), ])
-    client.subscribe(topic=[(topic_base + '/motion/arm/right', 1), ])
+    client.subscribe(topic=[(topic_base + '/MOTION/HEAD', 1), ])
+    client.subscribe(topic=[(topic_base + '/MOTION/ARM/LEFT', 1), ])
+    client.subscribe(topic=[(topic_base + '/MOTION/ARM/RIGHT', 1), ])
     print("Motion Module - Connected.")
 
 
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    if msg.topic == topic_base + '/motion/head':
+    if msg.topic == topic_base + '/MOTION/HEAD':
         client.publish(topic_base + '/syslog', 'Moving the head: ' + msg.payload.decode())
         # Keeping compatibility with the old version.
         if msg.payload.decode() == "CENTER":
@@ -133,7 +133,7 @@ def on_message(client, userdata, msg):
             EVA_arduino_serial_obj.write("hcy".encode())
 
     # Movements of the robot's arms.
-    if msg.topic == topic_base + '/motion/arm/left':
+    if msg.topic == topic_base + '/MOTION/ARM/LEFT':
         client.publish(topic_base + '/syslog', 'Moving the left arm: ' + msg.payload.decode())
         if msg.payload.decode() == "UP":
             EVA_arduino_serial_obj.write("alu".encode())
@@ -152,7 +152,7 @@ def on_message(client, userdata, msg):
         elif msg.payload.decode() == "SHAKE2":
             EVA_arduino_serial_obj.write("alS".encode())
 
-    if msg.topic == topic_base + '/motion/arm/right':
+    if msg.topic == topic_base + '/MOTION/ARM/RIGHT':
         client.publish(topic_base + '/syslog', 'Moving the right arm: ' + msg.payload.decode())
         if msg.payload.decode() == "UP":
             EVA_arduino_serial_obj.write("aru".encode())

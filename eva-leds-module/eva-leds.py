@@ -7,76 +7,96 @@ from paho.mqtt import client as mqtt_client
 import os
 import signal
 import subprocess
-
 import sys
-sys.path.append('/home/pi/EVA_ROBOT')
-import config # Module with network device configurations.
 
-broker = config.MQTT_BROKER_ADRESS # Broker address.
-port = config.MQTT_PORT # Broker Port.
+sys.path.append('/home/pi/EVA_ROBOT')
+import config
+
+broker = config.MQTT_BROKER_ADRESS
+port = config.MQTT_PORT
 topic_base = config.EVA_TOPIC_BASE
 
+animation_dir = "eva-leds-module/leds-animation/"
+animations = {
+    "ANGRY": "angry",
+    "ANGRY2": "angry2",
+    "INLOVE": "angry",
+    "HAPPY": "happy",
+    "LISTEN": "listen",
+    "PROCESS": "process",
+    "RAINBOW": "rainbow",
+    "SAD": "sad",
+    "FEAR": "sad",
+    "SAD2": "sad2",
+    "SURPRISE": "surprise",
+    "DISGUST": "surprise",
+    "SPEAK": "speak",
+    "WHITE": "white",
+}
 
-p = "" # Variable that stores the subprocess that runs the Martix Voice animation.
+p = None
 
-# MQTT
-# The callback for when the client receives a CONNACK response from the server.
+
+def stop_animation(turn_off=False):
+    global p
+
+    if p and p.poll() is None:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+    p = None
+
+    if turn_off:
+        os.system(animation_dir + "stop")
+
+
+def shutdown(signum, frame):
+    sys.exit(0)
+
+
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
-    # Subscribing in on_connect() means that if we lose the connection and
-    # Reconnect then subscriptions will be renewed.
-    client.subscribe(topic=[(topic_base + '/leds', 1), ])
-    
-# The callback for when a PUBLISH message is received from the server.
+    client.subscribe(topic=[(topic_base + '/LEDS', 1)])
+
+
 def on_message(client, userdata, msg):
-    global p # process
-    if msg.topic == topic_base + '/leds':
-        if msg.payload.decode() != "STOP": # Only prints for commands other than STOP
-            client.publish(topic_base + '/syslog', "Leds Animation: " + msg.payload.decode()) 
-        if msg.payload.decode() == "ANGRY": 
-            p = subprocess.Popen("eva-leds-module/leds-animation/angry", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "ANGRY2":
-            p = subprocess.Popen("eva-leds-module/leds-animation/angry2", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "INLOVE":
-            p = subprocess.Popen("eva-leds-module/leds-animation/angry", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "HAPPY":
-            p = subprocess.Popen("eva-leds-module/leds-animation/happy", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "LISTEN":
-            p = subprocess.Popen("eva-leds-module/leds-animation/listen", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "PROCESS":
-            p = subprocess.Popen("eva-leds-module/leds-animation/process", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "RAINBOW":
-            p = subprocess.Popen("eva-leds-module/leds-animation/rainbow", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "SAD":
-            p = subprocess.Popen("eva-leds-module/leds-animation/sad", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "FEAR":
-            p = subprocess.Popen("eva-leds-module/leds-animation/sad", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "SAD2":
-            p = subprocess.call("eva-leds-module/leds-animation/sad2", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "SURPRISE":
-            p = subprocess.Popen("eva-leds-module/leds-animation/surprise", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "DISGUST":
-            p = subprocess.Popen("eva-leds-module/leds-animation/surprise", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "SPEAK":
-            p = subprocess.Popen("eva-leds-module/leds-animation/speak", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "WHITE":
-            p = subprocess.Popen("eva-leds-module/leds-animation/white", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        elif msg.payload.decode() == "STOP":
-            if p != "":
-                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-                os.system("eva-leds-module/leds-animation/stop")
+    global p
 
-           
+    command = msg.payload.decode()
 
-# Run the MQTT client thread.
+    if command == "STOP":
+        stop_animation(turn_off=True)
+        return
+
+    if command not in animations:
+        return
+
+    client.publish(topic_base + '/syslog', "Leds Animation: " + command)
+    stop_animation()
+    p = subprocess.Popen(
+        animation_dir + animations[command],
+        stdout=subprocess.PIPE,
+        shell=True,
+        preexec_fn=os.setsid
+    )
+
+
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
+
 client = mqtt_client.Client()
 client.on_connect = on_connect
 client.on_message = on_message
+
 try:
     client.connect(broker, port)
 except:
-    print ("Unable to connect to Broker.")
-    exit(1)
+    print("Unable to connect to Broker.")
+    sys.exit(1)
 
-
-client.loop_forever()
+try:
+    client.loop_forever()
+finally:
+    stop_animation(turn_off=True)

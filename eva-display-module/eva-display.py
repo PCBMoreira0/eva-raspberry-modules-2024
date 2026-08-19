@@ -325,13 +325,13 @@ root.bind('<Key>', lbl.key_press)
 def on_connect(client, userdata, flags, rc):
     # Subscribing in on_connect() means that if we lose the connection and
     # Reconnect then subscriptions will be renewed.
-    client.subscribe(topic=[(topic_base + '/evaEmotion', 1), ])
+    client.subscribe(topic=[(topic_base + '/EVAEMOTION', 1), ])
     print("Display Module - Connected.")
     
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    if msg.topic == topic_base + '/evaEmotion':
+    if msg.topic == topic_base + '/EVAEMOTION':
         client.publish(topic_base + '/SYSLOG', "EVA's facial expression: " + msg.payload.decode()) 
         if msg.payload.decode() == "NEUTRAL":
             if lbl.stopped:

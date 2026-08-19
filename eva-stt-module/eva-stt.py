@@ -37,13 +37,13 @@ r.energy_threshold = threshold # Audio capture sensitivity.
 def on_connect(client, userdata, flags, rc):
     # Subscribing in on_connect() means that if we lose the connection and
     # Reconnect then subscriptions will be renewed.
-    client.subscribe(topic=[(topic_base + '/listen', 1), ])
+    client.subscribe(topic=[(topic_base + '/LISTEN', 1), ])
     print("Speech-To-Text Module - Connected.")
 
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    if msg.topic == topic_base + '/listen':
+    if msg.topic == topic_base + '/LISTEN':
         with mic as source:
             print("EVA is listening!")
             audio = r.listen(source)
@@ -55,18 +55,16 @@ def on_message(client, userdata, msg):
                 response = r.recognize_google(audio, language = language_defined_by_user)
                 print("Google Speech Recognition guess you said: " + response)
                 client.publish(topic_base + "/syslog", "Google Speech Recognition guess you said: " + response)
-                client.publish(topic_base + "/var/dollar", response) # This publish will pass the value to the EvaSIM, so the EvaSIM will also unblock
+                client.publish(topic_base + "/LISTEN_RESPONSE", response) # This publish will pass the value to the EvaSIM, so the EvaSIM will also unblock
             except sr.UnknownValueError:
                 print("Google Speech Recognition could not understand your audio...")
                 client.publish(topic_base + "/syslog", "Google Speech Recognition could not understand your audio...")
-                client.publish(topic_base + "/leds", "ANGRY")
-                client.publish(topic_base + "/abort", "Google Speech Recognition could not understand your audio...")
+                client.publish(topic_base + "/LISTEN_RESPONSE", "[ABORT] | Google Speech Recognition could not understand your audio...")
 
             except sr.RequestError as e:
                 print("Unable to request the results from Google Speech Recognition: {0}".format(e))
                 client.publish(topic_base + "/syslog", "Unable to request the results from Google Speech Recognition: {0}".format(e))
-                client.publish(topic_base + "/leds", "ANGRY")
-                client.publish(topic_base + "/abort", "Unable to request the results from Google Speech Recognition: {0}".format(e))
+                client.publish(topic_base + "/LISTEN_RESPONSE", "[ABORT] | Unable to request the results from Google Speech Recognition: {0}".format(e))
             
 
 

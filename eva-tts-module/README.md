@@ -15,6 +15,5 @@ This module is responsible for transforming texts (strings) into speech (audio f
 
 ## Module Dependencies
 
-* **Paho-Mqtt 1.6.1** (It can be installed using pip)
-* ***IBM-Watson*** (It can be installed using pip)
+You should download the [tensorflow-2.2.0-cp37-none-linux_armv7l.whl](https://github.com/lhelontra/tensorflow-on-arm/releases/tag/v2.2.0) wheel
 

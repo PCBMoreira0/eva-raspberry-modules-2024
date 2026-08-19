@@ -45,13 +45,13 @@ first_requisition = True; # Indicates that this is the first request for the Wat
 def on_connect(client, userdata, flags, rc):
     # Subscribing in on_connect() means that if we lose the connection and
     # Reconnect then subscriptions will be renewed.
-    client.subscribe(topic=[(topic_base + '/talk', 1), ])
+    client.subscribe(topic=[(topic_base + '/TALK', 1), ])
     print("Text-To-Speech Module - Connected.")
     
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     global voice_tone, auth_start_time, apikey, url, authenticator, tts, first_requisition
-    if msg.topic == topic_base + '/talk':
+    if msg.topic == topic_base + '/TALK':
         print("Using IBM Watson to convert text to audio...")
         # Assumes the default UTF-8 (Generates the hashing of the audio file).
         # Additionally, use the voice timbre attribute in the file hash.
