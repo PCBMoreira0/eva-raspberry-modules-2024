@@ -40,7 +40,7 @@ def playsound(file_path, audio_file, type, block = True):
 def speech(audio_file, block = True):
         file_path = "eva-tts-module/tts_cache_files/"
         playsound(file_path, audio_file, "speech", block)
-        client.publish(topic_base + "/state", "FREE - (AUDIO_SPEAK)") 
+        client.publish(topic_base + "/TALK_RESPONSE") # Libera o robô (resposta do comando talk)
 
 
 # MQTT
@@ -60,7 +60,7 @@ def on_message(client, userdata, msg):
         block = msg.payload.decode().split("|")[1]
         if block == "TRUE":
             playsound("eva-audio-module/audio_files/", file_name, "audio", True)
-            client.publish(topic_base + "/state", "FREE - (AUDIO_SOUND)") # Libera o robô
+            client.publish(topic_base + "/AUDIO_RESPONSE") # Libera o robô (resposta do comando audio)
         else:
             playsound("eva-audio-module/audio_files/", file_name, "audio", False) 
 

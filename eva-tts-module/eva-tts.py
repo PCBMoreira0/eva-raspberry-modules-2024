@@ -49,7 +49,22 @@ def on_connect(client, userdata, flags, rc):
     print("Text-To-Speech Module - Connected.")
     
 # The callback for when a PUBLISH message is received from the server.
+# Any failure (Watson quota exhausted, no internet, invalid credentials...) must not kill the module:
+# it is logged and the TALK_RESPONSE is sent anyway, so the simulator does not wait forever.
 def on_message(client, userdata, msg):
+    try:
+        talk(client, msg)
+    except Exception as ex:
+        if isinstance(ex, ApiException):
+            error = "Watson error code " + str(ex.code) + ": " + str(ex.message)
+        else:
+            error = type(ex).__name__ + ": " + str(ex)
+        print("The text could not be spoken. " + error)
+        client.publish(topic_base + "/syslog", "EVA could not speak the text (" + error + ")")
+        client.publish(topic_base + "/TALK_RESPONSE") # Releases the robot even without speech.
+
+
+def talk(client, msg):
     global voice_tone, auth_start_time, apikey, url, authenticator, tts, first_requisition
     if msg.topic == topic_base + '/TALK':
         print("Using IBM Watson to convert text to audio...")
@@ -103,29 +118,21 @@ def on_message(client, userdata, msg):
 
                 # Start the TTS process
                 tts_start = time.time() # Variable used to mark the processing time of the TTS service.
-                while(not audio_file_is_ok):
-                    # Functions of the TTS service for EVA
-                    with open("eva-tts-module/tts_cache_files/" + file_name + config.WATSON_AUDIO_EXTENSION, 'wb') as audio_file:
-                        try:
-                            res = tts.synthesize(msg.payload.decode(), accept = config.ACCEPT_AUDIO_EXTENSION, voice = voice_tone).get_result()
-                            print("Writing content to disk...")
-                            audio_file.write(res.content)
-                            file_size = os.path.getsize("eva-tts-module/tts_cache_files/" + file_name + config.WATSON_AUDIO_EXTENSION)
-                            print("File size:", file_size, " bytes.")
-                            if file_size == 0: # Corrupted file!
-                                print("#### Corrupted file....")
-                                os.remove("eva-tts-module/tts_cache_files/" + file_name + config.WATSON_AUDIO_EXTENSION)
-                            else:
-                                tts_ending = time.time()
-                                client.publish(topic_base + "/syslog", "The audio was generated correctly in (s): %.2f" % (tts_ending - tts_start))
-                                print("The file will be played!")
-                                client.publish(topic_base + "/syslog", "EVA is busy trying to speak the text: " + msg.payload.decode())
-                                client.publish(topic_base + "/speech", file_name)
-                                audio_file_is_ok = True
-                                first_requisition = False
-                        except ApiException as ex:
-                            print ("The function failed with the following error code: " + str(ex.code) + ": " + ex.message)
-                            exit(1)
+                # Calls Watson BEFORE creating the file, so a failure does not leave an empty (0 bytes) file in the cache.
+                # A failure raises an exception that is handled in on_message().
+                res = tts.synthesize(msg.payload.decode(), accept = config.ACCEPT_AUDIO_EXTENSION, voice = voice_tone).get_result()
+                if not res.content: # Corrupted audio!
+                    raise RuntimeError("Watson returned an empty audio.")
+                print("Writing content to disk...")
+                with open("eva-tts-module/tts_cache_files/" + file_name + config.WATSON_AUDIO_EXTENSION, 'wb') as audio_file:
+                    audio_file.write(res.content)
+                tts_ending = time.time()
+                client.publish(topic_base + "/syslog", "The audio was generated correctly in (s): %.2f" % (tts_ending - tts_start))
+                print("The file will be played!")
+                client.publish(topic_base + "/syslog", "EVA is busy trying to speak the text: " + msg.payload.decode())
+                client.publish(topic_base + "/speech", file_name)
+                audio_file_is_ok = True
+                first_requisition = False
             else:
                 print("The file is cached!")
                 if (os.path.getsize("eva-tts-module/tts_cache_files/" + file_name + config.WATSON_AUDIO_EXTENSION)) == 0: # Corrupted file
